@@ -23,7 +23,8 @@ Theta1 = reshape(nn_params(1:hidden_layer_size * (input_layer_size + 1)), ...
 Theta2 = reshape(nn_params((1 + (hidden_layer_size * (input_layer_size + 1))):end), ...
                  num_labels, (hidden_layer_size + 1));
 
-                 
+Theta1_og = Theta1;
+Theta2_og = Theta2;
 %Theta1 = 25 x 401
 %Theta2 = 10 x 26
 
@@ -81,15 +82,70 @@ Theta2_grad = zeros(size(Theta2));
   z3 = a2 * Theta2'; % (5000 x 26) * (26 x 10) = 5000 x 10
   a3 = sigmoid(z3); % a3 = 5000 x 10
   %[max, p] = max(a3,[],2); % p = 5000 x 1
-  disp(size(a3));
-  disp(size(y_matrix));
+
    
   J = sum( sum(-y_matrix .* log(a3) - (1 - y_matrix) .* log(1 - a3)) ) ; % j = 5000 x 10
   
   J = J/m;
+  Theta1_temp = Theta1(: , 2:end);
+  Theta2_temp = Theta2(:, 2:end );
+  Theta1_temp_sqr = (Theta1_temp).^2;
+  Theta2_temp_sqr = (Theta2_temp).^2;
+  term1 = sum( sum(Theta1_temp_sqr) );
+  term2 = sum( sum(Theta2_temp_sqr) ); 
+  regularized_term = (term1 + term2) * lambda / (2*m);
+  J = (J + regularized_term);
+  
+  
+  %Theta1 = 25 x 401
+  %Theta2 = 10 x 26
+  % PART 3 Back Propagation
+  
+  % VECTORIZED IMPLEMENTATION
+  
+  y_matrix = eye(num_labels)(y,:); % y_matrix = 5000 x 10
+  delta_3 = a3 - y_matrix; % 5000 x 10
+  gradient_z2 = sigmoidGradient(z2); % 5000 x 25
+  Theta2 = Theta2(:, 2:end); % 10 x 25
+  delta_2 = delta_3 * (Theta2) .* gradient_z2; % 5000 x 25 .* 5000 x 25 = 5000 x 25
+  D1 = delta_2' * X; % 25 x 5000 * 5000 x 401 = 25 x 401
+  D2 = delta_3' * a2; % 10 x 5000 * 5000 x 26 = 10 x 26 = delta_3 * (Theta2) .* sigmoidGradient(z2); % 1 x 25 .* 1 x 25 = 1 x 25
+
+  
+  % UNVECTORIZED LOOP IMPLEMENTATION
+  %{
+  D1 = 0;
+  D2 = 0;
+  for i = 1 : m
+    Theta1 = Theta1_og;
+    Theta2 = Theta2_og;
+    a1 = X(i,:); % 1 x 401
+    z2 =  a1 * Theta1'; % z2 = (1 x 401) * (401 x 25) = 1 x 25
+    a2 = sigmoid(z2); % a2 = 1 x 25
+    a2 = [ ones(1,1)  a2]; % a2 = 1 x 26
+    z3 = a2 * Theta2'; % (1 x 26) * (26 x 10) = 1 x 10
+    a3 = sigmoid(z3); % a3 = 1 x 10
+    delta_3 = a3 - y_matrix(i,:); % 1 x 10
+    Theta2 = Theta2(:,2:end); %10 x 25
+    delta_2 = (delta_3 * Theta2) .* sigmoidGradient(z2); %1 x 10 * 10 x 25 = 1 x 25
+    D1 = D1 + delta_2' * a1; % 25x1 * 1x401 = 25 x 401
+    D2 = D2 + delta_3' * a2; % 10x1 * 1 x 25 = 10 x 25 
+  endfor
+  %}
+  Theta1_temp = Theta1_og;
+  Theta2_temp = Theta2_og;
+  Theta1_temp(:,1) = 0;
+  Theta2_temp(:,1) = 0;
+  D1 = (D1 / m) + (lambda/m)*Theta1_temp;
+  D2 = D2 / m + (lambda/m)*Theta2_temp;
+  Theta1_grad = D1;
+  Theta2_grad = D2;
+  
   
 % Unroll gradients
 grad = [Theta1_grad(:) ; Theta2_grad(:)];
+
+
 
 
 end
